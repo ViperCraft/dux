@@ -4,6 +4,17 @@ import os
 import argparse
 from stat import *
 
+
+def safe_sys(f, path):
+    try:
+        return f(path)
+    except IOError as e:
+        print "I/O error{%d}: %s skip file: %s" % (e.errno, e.strerror, path)
+        return None
+    except OSError as e:
+        print "OS error{%d}: %s skip file: %s" % (e.errno, e.strerror, path)
+        return None
+
 class Directory:
     def __init__(self, path, dirname):
         self.path = path
@@ -13,12 +24,20 @@ class Directory:
         self.subdir_size = -1 # size of subdirs not calced yet
 
     def research(self):
-        for e in os.listdir(self.path):
-            e_path = self.path + '/' + e;
-            st = os.lstat(e_path);
+
+        lsdir = safe_sys(os.listdir, self.path)
+        if lsdir is None:
+            return
+
+        for e in lsdir:
+            e_path = self.path + '/' + e
+            st = safe_sys(os.lstat, e_path)
+            if st is None:
+                continue
+
             if S_ISDIR(st.st_mode):
                 self.subdirs.append(Directory(e_path, e))
-            else:
+            elif S_ISREG(st.st_mode):
                 self.mysize += st.st_size
 
         # perform research for collected subdirs too
